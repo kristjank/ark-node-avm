@@ -300,6 +300,15 @@ __private.attachApi = function () {
 		});
 	});
 
+	router.post('contracts', function(req, res){
+		res.set(__private.headers);
+		var transactions = req.body.transactions;
+		var peer=req.peer;
+
+		// do something
+	});
+
+
 	router.get('/height', function (req, res) {
 		res.set(__private.headers);
 		var block = modules.blockchain.getLastBlock();

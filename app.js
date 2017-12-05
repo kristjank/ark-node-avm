@@ -81,6 +81,7 @@ if (program.interactive) {
 var config = {
 	db: appConfig.db,
 	modules: {
+		contract: './modules/contracts.js',
 		accounts: './modules/accounts.js',
 		transactions: './modules/transactions.js',
 		blocks: './modules/blocks.js',
@@ -396,6 +397,7 @@ d.run(function () {
 			var Transaction = require('./logic/transaction.js');
 			var Block = require('./logic/block.js');
 			var Account = require('./logic/account.js');
+			// var Contract = require('./logic/contract.js');
 
 			async.auto({
 				bus: function (cb) {

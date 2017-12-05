@@ -11,7 +11,7 @@
     "port": 5432,
     "database": "ark_testnet",
     "user": null,
-    "password": "password",
+    "password": "test123",
     "poolSize": 20,
     "poolIdleTimeout": 30000,
     "reapIntervalMillis": 1000,

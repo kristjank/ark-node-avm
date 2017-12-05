@@ -639,4 +639,14 @@ NodeManager.prototype.onTransactionsReceived = function(transactions, source, cb
 	}, cb);
 };
 
+//
+//__EVENT__ `onContractPublished`
+
+//
+NodeManager.prototype.onContractPublished = function(transactions, source, cb) {
+
+
+
+};
+
 module.exports = NodeManager;
