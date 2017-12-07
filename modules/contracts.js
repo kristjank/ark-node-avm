@@ -32,5 +32,19 @@ function Contracts (cb, scope) {
 	return cb(null, self);
 }
 
+// Events
+//
+//__EVENT__ `onBind`
+
+//
+Contracts.prototype.onBind = function (scope) {
+	modules = scope;
+
+	__private.assetTypes[transactionTypes.REGISTERCONTRACT].bind({
+		modules: modules, library: library
+	});
+};
+
+
 // Export
 module.exports = Contracts;

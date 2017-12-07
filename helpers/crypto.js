@@ -1,6 +1,10 @@
+// import { Buffer } from 'buffer';
+
 'use strict';
 
 var arkjs = require('arkjs');
+var bs58check = require('bs58check')
+
 
 function Crypto(scope){
 	this.scope = scope;
@@ -24,5 +28,22 @@ Crypto.prototype.verify = function (hash, signatureBuffer, publicKeyBuffer) {
 		return false;
 	}
 };
+
+// this prolly should go into arkjs, no time now..
+Crypto.prototype.getContractAddress = function(bytes) {
+	
+	var version = 28; // C
+	
+	var ctAddress = arkjs.crypto.sha256(new Buffer(bytes, 'hex'));
+	ctAddress = arkjs.crypto.ripemd160(ctAddress);
+
+	var payload = new Buffer(21);
+	payload.writeUInt8(version, 0);
+	ctAddress.copy(payload, 1);
+
+	ctAddress =  bs58check.encode(payload);
+
+	return ctAddress;
+}
 
 module.exports = Crypto;

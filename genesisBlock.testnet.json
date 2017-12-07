@@ -12,7 +12,7 @@
   "transactions": [
     {
       "type": 0,
-      "amount": 0,
+      "amount": 500000000,
       "fee": 0,
       "recipientId": "aHQMp4jiLZZct3xhebiBukVJQjhEbfrZtD",
       "timestamp": 0,
@@ -24,7 +24,7 @@
     },
     {
       "type": 0,
-      "amount": 0,
+      "amount": 500000000,
       "fee": 0,
       "recipientId": "aM6duuZ7TVHrPi8UTokgCCyncNPAwqGZZk",
       "timestamp": 0,
@@ -36,7 +36,7 @@
     },
     {
       "type": 0,
-      "amount": 0,
+      "amount": 500000000,
       "fee": 0,
       "recipientId": "aFMCqxVstbPnPLPUesFJd7eysbcSFRdCVZ",
       "timestamp": 0,
@@ -48,7 +48,7 @@
     },
     {
       "type": 0,
-      "amount": 0,
+      "amount": 500000000,
       "fee": 0,
       "recipientId": "aNLZWSCrHoSeSznD8FdFK28yPk28Ls9eyU",
       "timestamp": 0,
@@ -60,7 +60,7 @@
     },
     {
       "type": 0,
-      "amount": 0,
+      "amount": 500000000,
       "fee": 0,
       "recipientId": "a918grYteM1fPUoSqvgNQ5hnSJAZAoFcto",
       "timestamp": 0,
@@ -72,7 +72,7 @@
     },
     {
       "type": 0,
-      "amount": 0,
+      "amount": 500000000,
       "fee": 0,
       "recipientId": "a5iPefbJfavRMwTqR7V4NKBiznhVMu2Ysu",
       "timestamp": 0,
@@ -84,7 +84,7 @@
     },
     {
       "type": 0,
-      "amount": 0,
+      "amount": 500000000,
       "fee": 0,
       "recipientId": "a58sDhRcQWB2nhG8NivGXZXUvbA79KrPPX",
       "timestamp": 0,
@@ -96,7 +96,7 @@
     },
     {
       "type": 0,
-      "amount": 0,
+      "amount": 500000000,
       "fee": 0,
       "recipientId": "aPKZ8rgBUkeMxRsBTfz6MJ8KdmHZcwHUca",
       "timestamp": 0,

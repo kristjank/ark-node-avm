@@ -35,7 +35,7 @@ Contract.prototype.create = function (data, trs) {
 
 //
 Contract.prototype.calculateFee = function (trs) {
-	return constants.fees.vote;
+	return constants.fees.publishContract;
 };
 
 //
@@ -89,7 +89,7 @@ Contract.prototype.getBytes = function (trs) {
 	var buf;
 
 	try {
-		buf = trs.asset.votes ? new Buffer(trs.asset.votes.join(''), 'utf8') : null;
+		buf = trs.asset.code ? new Buffer(trs.asset.votes.join(''), 'utf8') : null;
 	} catch (e) {
 		throw e;
 	}
@@ -199,18 +199,25 @@ Contract.prototype.undoUnconfirmed = function (trs, sender, cb) {
 	this.scope.account.merge(sender.address, {u_delegates: votesInvert}, cb);
 };
 
+// asset schema
 Contract.prototype.schema = {
-	id: 'Vote',
+	id: 'contract',
 	type: 'object',
 	properties: {
-		votes: {
-			type: 'array',
-			minLength: 1,
-			maxLength: constants.maximumVotes,
-			uniqueItems: true
-		}
+		// ownerPublicKey: {
+		// 	type: 'string',
+		// 	format: 'publicKey'
+		// },
+		code: {
+			type: 'string',
+			format: 'hex'
+		},
+		// address: {
+		// 	type: 'string',
+		// 	format: 'address'
+		// }
 	},
-	required: ['votes']
+	required: ['code']
 };
 
 //
@@ -218,13 +225,15 @@ Contract.prototype.schema = {
 
 //
 Contract.prototype.objectNormalize = function (trs) {
-	// var report = library.schema.validate(trs.asset, Contract.prototype.schema);
+	var report = library.schema.validate(trs.asset, Contract.prototype.schema);
 
 	if (!report) {
 		throw 'Failed to validate vote schema: ' + this.scope.schema.getLastErrors().map(function (err) {
 			return err.message;
 		}).join(', ');
 	}
+
+	trs.recipientId = library.crypto.getContractAddress(trs.asset.code);
 
 	return trs;
 };
