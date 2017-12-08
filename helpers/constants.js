@@ -43,5 +43,6 @@ module.exports = {
 	},
 	signatureLength: 196,
 	totalAmount: 12500000000000000,
-	unconfirmedTransactionTimeOut: 10800 // 1080 blocks
+	unconfirmedTransactionTimeOut: 10800, // 1080 blocks
+	contractVersion: 28 // C - start contract addresses with C
 };

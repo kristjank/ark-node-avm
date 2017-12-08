@@ -1,3 +1,4 @@
+
 'use strict';
 
 var _ = require('lodash');
@@ -77,7 +78,10 @@ Transaction.prototype.create = function (data) {
 Transaction.prototype.validateAddress = function(address){
 	try {
 		var decode = bs58check.decode(address);
-		return decode[0] == this.scope.crypto.network.pubKeyHash;
+		var isContract = decode[0] == constants.contractVersion;
+		var isTx = decode[0] == this.scope.crypto.network.pubKeyHash;
+
+		return isContract || isTx;
 	} catch(e){
 		return false;
 	}
@@ -163,6 +167,7 @@ Transaction.prototype.fromBytes = function(buffer){
 //__API__ `getBytes`
 
 //
+// CODE DUPLICATED IN ARKSJS lib\transactions\crypto !!!
 Transaction.prototype.getBytes = function (trs, skipSignature, skipSecondSignature) {
 	if (!__private.types[trs.type]) {
 		throw 'Unknown transaction type ' + trs.type;

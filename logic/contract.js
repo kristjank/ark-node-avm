@@ -3,10 +3,12 @@
 var constants = require('../helpers/constants.js');
 
 // Private fields
-var modules, library;
+var self, modules, library;
 
 // Constructor
-function Contract () {}
+function Contract () {
+	self = this;
+}
 
 
 // Public methods
@@ -43,34 +45,18 @@ Contract.prototype.calculateFee = function (trs) {
 
 //
 Contract.prototype.verify = function (trs, sender, cb) {
-	if (trs.recipientId !== trs.senderId) {
-		return cb('Invalid recipient');
-	}
 
-	if (!trs.asset || !trs.asset.votes) {
-		return cb('Invalid transaction asset');
-	}
+	// var isAddress = /^[1-9A-Za-z]{1,35}$/g;
+	// if (!trs.recipientId || !isAddress.test(trs.recipientId)) {
+	// 	return cb('Invalid recipient');
+	// }
 
-	if (!Array.isArray(trs.asset.votes)) {
-		return cb('Invalid votes. Must be an array');
-	}
+	// if(trs.recipientId != this.generateAddress(trs))
+	// {
+	// 	return cb('Invalid contract address');
+	// }
 
-	if (!trs.asset.votes.length) {
-		return cb('Invalid votes. Must not be empty');
-	}
-
-	if (trs.asset.votes && trs.asset.votes.length > constants.maximumVotes) {
-		return cb('Voting limit exceeded. Maximum is '+constants.maximumVotes+' vote per transaction');
-	}
-
-	modules.delegates.checkConfirmedDelegates(trs.senderPublicKey, trs.asset.votes, function (err) {
-		if (err && exceptions.votes.indexOf(trs.id) > -1) {
-			library.logger.debug(err);
-			library.logger.debug(JSON.stringify(trs));
-			err = null;
-		}
-		return cb(err, trs);
-	});
+	return cb(null, trs);
 };
 
 //
@@ -78,6 +64,9 @@ Contract.prototype.verify = function (trs, sender, cb) {
 
 //
 Contract.prototype.process = function (trs, sender, cb) {
+
+	// trs.recipientId = self.generateAddress(trs)
+
 	return cb(null, trs);
 };
 
@@ -89,46 +78,12 @@ Contract.prototype.getBytes = function (trs) {
 	var buf;
 
 	try {
-		buf = trs.asset.code ? new Buffer(trs.asset.votes.join(''), 'utf8') : null;
+		buf = trs.asset.code ? new Buffer(trs.asset.code, 'utf8') : null;
 	} catch (e) {
 		throw e;
 	}
 
 	return buf;
-};
-
-
-//
-//__API__ `checkConfirmedDelegates`
-
-//
-Contract.prototype.checkConfirmedDelegates = function (trs, cb) {
-	modules.delegates.checkConfirmedDelegates(trs.senderPublicKey, trs.asset.votes, function (err) {
-		if (err && exceptions.votes.indexOf(trs.id) > -1) {
-			library.logger.debug(err);
-			library.logger.debug(JSON.stringify(trs));
-			err = null;
-		}
-
-		return cb(err);
-	});
-};
-
-
-//
-//__API__ `checkUnconfirmedDelegates`
-
-//
-Contract.prototype.checkUnconfirmedDelegates = function (trs, cb) {
-	modules.delegates.checkUnconfirmedDelegates(trs.senderPublicKey, trs.asset.votes, function (err) {
-		if (err && exceptions.votes.indexOf(trs.id) > -1) {
-			library.logger.debug(err);
-			library.logger.debug(JSON.stringify(trs));
-			err = null;
-		}
-
-		return cb(err);
-	});
 };
 
 //
@@ -174,18 +129,23 @@ Contract.prototype.undo = function (trs, block, sender, cb) {
 
 //
 Contract.prototype.applyUnconfirmed = function (trs, sender, cb) {
-	var parent = this;
 
-	async.series([
-		function (seriesCb) {
-			self.checkUnconfirmedDelegates(trs, seriesCb);
-		},
-		function (seriesCb) {
-			parent.scope.account.merge(sender.address, {
-				u_delegates: trs.asset.votes
-			}, seriesCb);
+	var contractId = self.generateAddress(trs);
+
+	// add to code to contract account here
+	modules.accounts.getAccount({
+		u_username: contractId
+	}, function (err, account) {
+		if (err) {
+			return cb(err);
 		}
-	], cb);
+
+		if (account) {
+			return cb('Username already exists');
+		}
+
+		// do stuff
+	});
 };
 
 //
@@ -204,18 +164,10 @@ Contract.prototype.schema = {
 	id: 'contract',
 	type: 'object',
 	properties: {
-		// ownerPublicKey: {
-		// 	type: 'string',
-		// 	format: 'publicKey'
-		// },
 		code: {
 			type: 'string',
 			format: 'hex'
-		},
-		// address: {
-		// 	type: 'string',
-		// 	format: 'address'
-		// }
+		}
 	},
 	required: ['code']
 };
@@ -233,32 +185,33 @@ Contract.prototype.objectNormalize = function (trs) {
 		}).join(', ');
 	}
 
-	trs.recipientId = library.crypto.getContractAddress(trs.asset.code);
-
 	return trs;
 };
+
+Contract.prototype.generateAddress = function(trs)
+{
+	return library.crypto.getContractAddress(trs.asset.code);
+}
 
 //
 //__API__ `dbRead`
 
 //
 Contract.prototype.dbRead = function (raw) {
-	// console.log(raw.v_votes);
 
-	if (!raw.v_votes) {
+	if (!raw.vote) {
 		return null;
 	} else {
-		var votes = raw.v_votes.split(',');
+		var code = raw.code;
 
-		return {votes: votes};
+		return {code: code};
 	}
 };
 
-Contract.prototype.dbTable = 'votes';
+Contract.prototype.dbTable = 'code';
 
 Contract.prototype.dbFields = [
-	'votes',
-	'transactionId'
+	'code'
 ];
 
 //
@@ -270,7 +223,7 @@ Contract.prototype.dbSave = function (trs) {
 		table: this.dbTable,
 		fields: this.dbFields,
 		values: {
-			votes: Array.isArray(trs.asset.votes) ? trs.asset.votes.join(',') : null,
+			code: code,
 			transactionId: trs.id
 		}
 	};

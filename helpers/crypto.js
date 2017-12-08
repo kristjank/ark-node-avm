@@ -4,6 +4,7 @@
 
 var arkjs = require('arkjs');
 var bs58check = require('bs58check')
+var constants = require('./constants.js');
 
 
 function Crypto(scope){
@@ -32,7 +33,7 @@ Crypto.prototype.verify = function (hash, signatureBuffer, publicKeyBuffer) {
 // this prolly should go into arkjs, no time now..
 Crypto.prototype.getContractAddress = function(bytes) {
 	
-	var version = 28; // C
+	var version = constants.contractVersion; // C
 	
 	var ctAddress = arkjs.crypto.sha256(new Buffer(bytes, 'hex'));
 	ctAddress = arkjs.crypto.ripemd160(ctAddress);
