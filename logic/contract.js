@@ -91,20 +91,17 @@ Contract.prototype.getBytes = function (trs) {
 
 //
 Contract.prototype.apply = function (trs, block, sender, cb) {
-	var parent = this;
+	
+	var contractId = self.generateAddress(trs);
+	
+	var data = {
+		address: contractId,
+		code : trs.asset.code
+	};
 
-	async.series([
-		function (seriesCb) {
-			self.checkConfirmedDelegates(trs, seriesCb);
-		},
-		function (seriesCb) {
-			parent.scope.account.merge(sender.address, {
-				delegates: trs.asset.votes,
-				blockId: block.id,
-				round: modules.rounds.getRoundFromHeight(block.height)
-			}, seriesCb);
-		}
-	], cb);
+	library.logger.error("Adding contract: ", contractId);
+
+	modules.accounts.setAccountAndGet(data, cb);
 };
 
 
@@ -113,15 +110,7 @@ Contract.prototype.apply = function (trs, block, sender, cb) {
 
 //
 Contract.prototype.undo = function (trs, block, sender, cb) {
-	if (trs.asset.votes === null) { return cb(); }
-
-	var votesInvert = Diff.reverse(trs.asset.votes);
-
-	this.scope.account.merge(sender.address, {
-		delegates: votesInvert,
-		blockId: block.id,
-		round: modules.rounds.getRoundFromHeight(block.height)
-	}, cb);
+	return cb();
 };
 
 //
@@ -130,22 +119,7 @@ Contract.prototype.undo = function (trs, block, sender, cb) {
 //
 Contract.prototype.applyUnconfirmed = function (trs, sender, cb) {
 
-	var contractId = self.generateAddress(trs);
-
-	// add to code to contract account here
-	modules.accounts.getAccount({
-		u_username: contractId
-	}, function (err, account) {
-		if (err) {
-			return cb(err);
-		}
-
-		if (account) {
-			return cb('Username already exists');
-		}
-
-		// do stuff
-	});
+	return cb();
 };
 
 //
@@ -153,10 +127,7 @@ Contract.prototype.applyUnconfirmed = function (trs, sender, cb) {
 
 //
 Contract.prototype.undoUnconfirmed = function (trs, sender, cb) {
-	if (trs.asset.votes === null) { return cb(); }
-
-	var votesInvert = Diff.reverse(trs.asset.votes);
-	this.scope.account.merge(sender.address, {u_delegates: votesInvert}, cb);
+	return cb();
 };
 
 // asset schema
@@ -211,7 +182,8 @@ Contract.prototype.dbRead = function (raw) {
 Contract.prototype.dbTable = 'code';
 
 Contract.prototype.dbFields = [
-	'code'
+	'code',
+	'transactionId'
 ];
 
 //
@@ -223,7 +195,7 @@ Contract.prototype.dbSave = function (trs) {
 		table: this.dbTable,
 		fields: this.dbFields,
 		values: {
-			code: code,
+			code: trs.asset.code,
 			transactionId: trs.id
 		}
 	};

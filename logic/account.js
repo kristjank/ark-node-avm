@@ -306,7 +306,19 @@ function Account (scope, cb) {
 			},
 			conv: Boolean,
 			immutable: true
+		},
+		{
+			name: 'code',
+			type: 'String',
+			filter: {
+				type: 'string',
+				case: 'lower',
+				maxLength: 20
+			},
+			conv: String,
+			immutable: true
 		}
+		// add contract code, is_contract maybe
 	];
 
 	this.fields = this.model.map(function (field) {

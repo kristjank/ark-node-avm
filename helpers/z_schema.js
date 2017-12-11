@@ -2,6 +2,7 @@
 
 var ip = require('ip');
 var bs58check = require('bs58check');
+var constants = require('../helpers/constants.js');
 
 function schema(network){
   this.z_schema = require('z-schema');
@@ -36,8 +37,11 @@ function schema(network){
 
     var version = network.pubKeyHash;
   	try {
-  		var decode = bs58check.decode(str);
-  		return decode[0] == version;
+      var decode = bs58check.decode(str);
+      var isContract = decode[0] == constants.contractVersion;
+      var isTx = decode[0] == version;
+  
+      return isContract || isTx;
   	} catch(e){
   		return false;
   	}

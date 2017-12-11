@@ -68,6 +68,12 @@ CREATE TABLE IF NOT EXISTS "votes"(
   FOREIGN KEY("transactionId") REFERENCES "transactions"("id") ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS "code"(
+  "code" VARCHAR(20),
+  "transactionId" VARCHAR(64) NOT NULL,
+  FOREIGN KEY("transactionId") REFERENCES "transactions"("id") ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS "forks_stat"(
   "delegatePublicKey" bytea NOT NULL,
   "blockTimestamp" INT NOT NULL,
