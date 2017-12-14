@@ -309,11 +309,20 @@ function Account (scope, cb) {
 		},
 		{
 			name: 'code',
-			type: 'String',
+			type: 'Text',
 			filter: {
 				type: 'string',
-				case: 'lower',
-				maxLength: 20
+				uniqueItems: true
+			},
+			conv: String,
+			immutable: true
+		},
+		{
+			name: 'storage',
+			type: 'Text',
+			filter: {
+				type: 'string',
+				uniqueItems: true
 			},
 			conv: String,
 			immutable: true

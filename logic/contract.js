@@ -1,6 +1,9 @@
 'use strict';
 
 var constants = require('../helpers/constants.js');
+var VM = require('ethereumjs-vm');
+var Trie = require('merkle-patricia-tree');
+var rlp = require('rlp');
 
 // Private fields
 var self, modules, library;
@@ -93,15 +96,53 @@ Contract.prototype.getBytes = function (trs) {
 Contract.prototype.apply = function (trs, block, sender, cb) {
 	
 	var contractId = self.generateAddress(trs);
+
+	var trie = new Trie();
+	var vm = new VM(trie);
+
+	var bytecode = trs.asset.code;
+	var storage = [];
+
+	vm.runCode({
+        code: Buffer.from(bytecode, 'hex'),
+        gasLimit: Buffer.from('ffffffffff', 'hex')
+	}, function(err, res){
+
+		if(err)
+			return cb(err);
+
+		res.runState.stateManager._getStorageTrie(res.runState.address, function (err, trie) {
+
+			var stream = trie.createReadStream();
+
+			stream.on('data', function (dt) {
+
+				var value = rlp.decode(dt.value);
+				// var enc = rlp.encode(value);
+
+				storage.push({
+					key: dt.key.toString(),
+					value: value.toString()
+				});
+			})
+
+			stream.on("end", done);
+		});
+	});
 	
-	var data = {
-		address: contractId,
-		code : trs.asset.code
-	};
+	function done() {
 
-	library.logger.error("Adding contract: ", contractId);
+		var data = {
+			address: contractId,
+			blockId: block.id,
+			code: bytecode,
+			storage: JSON.stringify(storage)
+		};
 
-	modules.accounts.setAccountAndGet(data, cb);
+		library.logger.log("Deploying contract to blockchain: ", contractId);
+
+		modules.accounts.setAccountAndGet(data, cb);
+	}
 };
 
 
@@ -118,6 +159,8 @@ Contract.prototype.undo = function (trs, block, sender, cb) {
 
 //
 Contract.prototype.applyUnconfirmed = function (trs, sender, cb) {
+
+	// should check address that comtract is not already deployed
 
 	return cb();
 };
@@ -161,7 +204,7 @@ Contract.prototype.objectNormalize = function (trs) {
 
 Contract.prototype.generateAddress = function(trs)
 {
-	return library.crypto.getContractAddress(trs.asset.code);
+	return library.crypto.getContractAddress(library.logic.transaction.getBytes(trs, true, true));
 }
 
 //

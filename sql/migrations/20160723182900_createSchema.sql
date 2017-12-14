@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS "votes"(
 );
 
 CREATE TABLE IF NOT EXISTS "code"(
-  "code" VARCHAR(20),
+  "code" TEXT,
   "transactionId" VARCHAR(64) NOT NULL,
   FOREIGN KEY("transactionId") REFERENCES "transactions"("id") ON DELETE CASCADE
 );
