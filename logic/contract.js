@@ -29,8 +29,7 @@ Contract.prototype.bind = function (scope) {
 
 //
 Contract.prototype.create = function (data, trs) {
-	trs.recipientId = data.sender.address;
-	trs.asset.votes = data.votes;
+	trs.asset.code = data.code;
 
 	return trs;
 };
@@ -96,6 +95,8 @@ Contract.prototype.getBytes = function (trs) {
 Contract.prototype.apply = function (trs, block, sender, cb) {
 	
 	var contractId = self.generateAddress(trs);
+
+	trs.recipientId = contractId;
 
 	var trie = new Trie();
 	var vm = new VM(trie);
@@ -213,7 +214,7 @@ Contract.prototype.generateAddress = function(trs)
 //
 Contract.prototype.dbRead = function (raw) {
 
-	if (!raw.vote) {
+	if (!raw.code) {
 		return null;
 	} else {
 		var code = raw.code;
