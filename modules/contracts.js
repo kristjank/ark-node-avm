@@ -49,6 +49,10 @@ Contracts.prototype.onBind = function (scope) {
 	__private.assetTypes[transactionTypes.REGISTERCONTRACT].bind({
 		modules: modules, library: library
 	});
+
+	__private.assetTypes[transactionTypes.CALLCONTRACT].bind({
+		modules: modules, library: library
+	});
 };
 
 

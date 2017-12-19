@@ -74,6 +74,12 @@ CREATE TABLE IF NOT EXISTS "code"(
   FOREIGN KEY("transactionId") REFERENCES "transactions"("id") ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS "contractcalls"(
+  "params" TEXT,
+  "transactionId" VARCHAR(64) NOT NULL,
+  FOREIGN KEY("transactionId") REFERENCES "transactions"("id") ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS "forks_stat"(
   "delegatePublicKey" bytea NOT NULL,
   "blockTimestamp" INT NOT NULL,

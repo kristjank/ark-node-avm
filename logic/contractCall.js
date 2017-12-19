@@ -3,6 +3,7 @@
 var constants = require('../helpers/constants.js');
 var VM = require('ethereumjs-vm');
 var Trie = require('merkle-patricia-tree');
+var ethAccount = require('ethereumjs-account');
 var rlp = require('rlp');
 
 // Private fields
@@ -77,14 +78,103 @@ ContractCall.prototype.getBytes = function (trs) {
 	return buf;
 };
 
+ContractCall.prototype.runCode = function(bytecode, storageTrie, callData, cb) {
+	
+	var vm = new VM(storageTrie);
+	var acc = new ethAccount();
+
+
+	// var stream = storageTrie.createReadStream();
+
+	// var pre = [];
+
+	// stream.on('data', function (dt) {
+
+	// 	var value = rlp.decode(dt.value);
+	// 	// var enc = rlp.encode(value);
+
+	// 	pre.push({
+	// 		key: dt.key.toString('hex'),
+	// 		value: value.toString('hex')
+	// 	});
+	// })
+
+	// acc.setCode
+
+	// run code
+	vm.runCode({
+		code: Buffer.from(bytecode, 'hex'),
+		data: Buffer.from(callData, 'hex'),
+		gasLimit: Buffer.from('ffffffffff', 'hex')
+	}, function (err, res) {
+
+		if (err)
+			return cb(err);
+
+		var storage = [];
+
+		res.runState.stateManager._getStorageTrie(res.runState.address, function (err, trie) {
+
+			var stream = trie.createReadStream();
+
+			stream.on('data', function (dt) {
+
+				var value = rlp.decode(dt.value);
+
+				storage.push({
+					key: dt.key.toString('hex'),
+					value: value.toString('hex')
+				});
+			})
+
+			stream.on("end", function(){
+				cb(null, storage);
+			});
+		});
+	});
+}
+
 //
 //__API__ `apply`
 
 //
 ContractCall.prototype.apply = function (trs, block, sender, cb) {
-    // call ct here
-    trs;
 
+	var callData = trs.asset.params;
+
+	// get contract code and storage trie
+	modules.accounts.getAccount({address: trs.recipientId}, function(err, contract) {
+		if (err || !contract) {
+			return cb(err);
+		}
+
+		var storage = JSON.parse(contract.storage);
+		var bytecode = contract.code;
+
+		var trie = new Trie();
+
+		for(var i in storage) {
+			trie.put(storage[i].key, storage[i].value, function(err){
+				console.log(err);
+			});
+		}
+
+		self.runCode(bytecode, trie, callData, done);
+	});
+
+	function done(err, storage) {
+
+		if (err || !storage)
+			return cb(err);
+
+		var data = {
+			address: trs.recipientId,
+			blockId: block.id,
+			storage: JSON.stringify(storage)
+		};
+
+		modules.accounts.setAccountAndGet(data, cb);
+	}
 };
 
 
@@ -130,7 +220,7 @@ ContractCall.prototype.schema = {
 
 //
 ContractCall.prototype.objectNormalize = function (trs) {
-	var report = library.schema.validate(trs.asset, Contract.prototype.schema);
+	var report = library.schema.validate(trs.asset, ContractCall.prototype.schema);
 
 	if (!report) {
 		throw 'Failed to validate vote schema: ' + this.scope.schema.getLastErrors().map(function (err) {

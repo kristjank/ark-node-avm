@@ -122,8 +122,8 @@ Contract.prototype.apply = function (trs, block, sender, cb) {
 				// var enc = rlp.encode(value);
 
 				storage.push({
-					key: dt.key.toString(),
-					value: value.toString()
+					key: dt.key.toString('hex'),
+					value: value.toString('hex')
 				});
 			})
 
