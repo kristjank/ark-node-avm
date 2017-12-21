@@ -1,5 +1,6 @@
 'use strict';
 
+var async = require('async');
 var constants = require('../helpers/constants.js');
 var VM = require('ethereumjs-vm');
 var Trie = require('merkle-patricia-tree');
@@ -78,58 +79,38 @@ ContractCall.prototype.getBytes = function (trs) {
 	return buf;
 };
 
-ContractCall.prototype.runCode = function(bytecode, storageTrie, callData, cb) {
+ContractCall.prototype.runCode = function(ops, wStateTrie, cb) {
 	
-	var vm = new VM(storageTrie);
-	var acc = new ethAccount();
+	var vm = new VM(wStateTrie);
 
-
-	// var stream = storageTrie.createReadStream();
-
-	// var pre = [];
-
-	// stream.on('data', function (dt) {
-
-	// 	var value = rlp.decode(dt.value);
-	// 	// var enc = rlp.encode(value);
-
-	// 	pre.push({
-	// 		key: dt.key.toString('hex'),
-	// 		value: value.toString('hex')
-	// 	});
-	// })
-
-	// acc.setCode
+	vm.on('step', function (data) {
+		console.log(data.opcode.name)
+	})
 
 	// run code
-	vm.runCode({
-		code: Buffer.from(bytecode, 'hex'),
-		data: Buffer.from(callData, 'hex'),
-		gasLimit: Buffer.from('ffffffffff', 'hex')
-	}, function (err, res) {
+	vm.runCode(ops, function (err, res) {
 
 		if (err)
 			return cb(err);
 
 		var storage = [];
 
-		res.runState.stateManager._getStorageTrie(res.runState.address, function (err, trie) {
+		var storageTrie = wStateTrie.copy();
+		storageTrie.root = ops.account.stateRoot;	
+		var stream = storageTrie.createReadStream();
 
-			var stream = trie.createReadStream();
+		stream.on('data', function (dt) {
 
-			stream.on('data', function (dt) {
+			var value = rlp.decode(dt.value);
 
-				var value = rlp.decode(dt.value);
+			// storage.push({
+			// 	key: dt.key.toString('hex'),
+			// 	value: value.toString('hex')
+			// });
+		})
 
-				storage.push({
-					key: dt.key.toString('hex'),
-					value: value.toString('hex')
-				});
-			})
-
-			stream.on("end", function(){
-				cb(null, storage);
-			});
+		stream.on("end", function () {
+			cb(null, storage);
 		});
 	});
 }
@@ -141,31 +122,68 @@ ContractCall.prototype.runCode = function(bytecode, storageTrie, callData, cb) {
 ContractCall.prototype.apply = function (trs, block, sender, cb) {
 
 	var callData = trs.asset.params;
+	var address = trs.recipientId;
 
 	// get contract code and storage trie
-	modules.accounts.getAccount({address: trs.recipientId}, function(err, contract) {
+	modules.accounts.getAccount({address: address}, function(err, contract) {
 		if (err || !contract) {
 			return cb(err);
 		}
 
+		var wStateTrie = new Trie(); // world state trie - holds the acc
+		var acc = new ethAccount();
+
 		var storage = JSON.parse(contract.storage);
-		var bytecode = contract.code;
+		var runsOps = {
+			code: Buffer.from(contract.code, 'hex'),
+			data: Buffer.from(callData, 'hex'),
+			gasLimit: Buffer.from('ffffffffff', 'hex'), 
+			address: address,// Buffer.from(address, 'hex'),
+			account: acc
+		};
 
-		var trie = new Trie();
+		async.waterfall([
+			// function(waterCb) {
+			// 	wStateTrie.put(address, acc.serialize(), waterCb);
+			// },
+			// async.apply(wStateTrie.put, trs.recipientId, acc.serialize()),
+			async.apply(acc.setCode, wStateTrie, contract.code), // set code to contract account
+			function (codeHash, waterCb) { // set state to contract account
 
-		for(var i in storage) {
-			trie.put(storage[i].key, storage[i].value, function(err){
-				console.log(err);
-			});
-		}
+				// set state
+				async.eachSeries(storage, function(member, eachSeriesCb) {
+					acc.setStorage(wStateTrie, member.key, member.value, function(err){
+						if(err)
+							eachSeriesCb(err);
+					});
+				}, function(err) {
+					return waterCb(err);
+				});
 
-		self.runCode(bytecode, trie, callData, done);
+				var storageTrie = wStateTrie.copy();
+				storageTrie.root = acc.stateRoot;
+				var stream = storageTrie.createReadStream();
+
+				stream.on('data', function (dt) {
+
+					var value = rlp.decode(dt.value);
+				});
+
+				waterCb(null, runsOps, wStateTrie);
+			},
+			self.runCode,
+			done // save contract account state
+			
+		], function(err) {
+			library.logger.log('err: ' + err);
+			return cb(err);
+		});
 	});
 
-	function done(err, storage) {
+	function done(err, storage, waterCb) {
 
 		if (err || !storage)
-			return cb(err);
+			return waterCb(err);
 
 		var data = {
 			address: trs.recipientId,
@@ -173,7 +191,7 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 			storage: JSON.stringify(storage)
 		};
 
-		modules.accounts.setAccountAndGet(data, cb);
+		modules.accounts.setAccountAndGet(data, waterCb);
 	}
 };
 
