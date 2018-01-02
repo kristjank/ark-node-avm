@@ -6,6 +6,7 @@ var VM = require('ethereumjs-vm');
 var Trie = require('merkle-patricia-tree');
 var ethAccount = require('ethereumjs-account');
 var rlp = require('rlp');
+const BN = require('ethereumjs-util').BN;
 
 // Private fields
 var self, modules, library;
@@ -79,42 +80,6 @@ ContractCall.prototype.getBytes = function (trs) {
 	return buf;
 };
 
-ContractCall.prototype.runCode = function(ops, wStateTrie, cb) {
-	
-	var vm = new VM(wStateTrie);
-
-	vm.on('step', function (data) {
-		console.log(data.opcode.name)
-	})
-
-	// run code
-	vm.runCode(ops, function (err, res) {
-
-		if (err)
-			return cb(err);
-
-		var storage = [];
-
-		var storageTrie = wStateTrie.copy();
-		storageTrie.root = ops.account.stateRoot;	
-		var stream = storageTrie.createReadStream();
-
-		stream.on('data', function (dt) {
-
-			var value = rlp.decode(dt.value);
-
-			// storage.push({
-			// 	key: dt.key.toString('hex'),
-			// 	value: value.toString('hex')
-			// });
-		})
-
-		stream.on("end", function () {
-			cb(null, storage);
-		});
-	});
-}
-
 //
 //__API__ `apply`
 
@@ -131,28 +96,39 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 		}
 
 		var wStateTrie = new Trie(); // world state trie - holds the acc
-		var acc = new ethAccount();
 
 		var storage = JSON.parse(contract.storage);
 		var runsOps = {
 			code: Buffer.from(contract.code, 'hex'),
 			data: Buffer.from(callData, 'hex'),
 			gasLimit: Buffer.from('ffffffffff', 'hex'), 
-			address: address,// Buffer.from(address, 'hex'),
-			account: acc
+			address: address
 		};
 
+		var vm = new VM(wStateTrie);
+		var stateManager = vm.stateManager;
+		
 		async.waterfall([
-			// function(waterCb) {
-			// 	wStateTrie.put(address, acc.serialize(), waterCb);
-			// },
-			// async.apply(wStateTrie.put, trs.recipientId, acc.serialize()),
-			async.apply(acc.setCode, wStateTrie, contract.code), // set code to contract account
-			function (codeHash, waterCb) { // set state to contract account
+			function (waterCb) {
+
+				stateManager.getAccount(address, function (err, account) {
+					if(err)
+						waterCb(err);
+					
+					account.nonce = new BN(0).addn(1);
+					runsOps.account = account;
+
+					stateManager.putContractCode(address, contract.code, function(err){
+						stateManager.commitContracts(waterCb)
+						// waterCb(null);
+					});
+				});
+			},
+			function (waterCb) { // set state to contract account
 
 				// set state
 				async.eachSeries(storage, function(member, eachSeriesCb) {
-					acc.setStorage(wStateTrie, member.key, member.value, function(err){
+					stateManager.putContractStorage(address, member.key, member.value, function(err){
 						if(err)
 							eachSeriesCb(err);
 					});
@@ -160,18 +136,9 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 					return waterCb(err);
 				});
 
-				var storageTrie = wStateTrie.copy();
-				storageTrie.root = acc.stateRoot;
-				var stream = storageTrie.createReadStream();
-
-				stream.on('data', function (dt) {
-
-					var value = rlp.decode(dt.value);
-				});
-
-				waterCb(null, runsOps, wStateTrie);
+				waterCb(null, vm, runsOps, wStateTrie);
 			},
-			self.runCode,
+			runCode,
 			done // save contract account state
 			
 		], function(err) {
@@ -180,10 +147,45 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 		});
 	});
 
-	function done(err, storage, waterCb) {
+	function runCode(vm, ops, wStateTrie, cb) {
+		vm.on('step', function (data) {
+			console.log(data.opcode.name)
+		})
 
-		if (err || !storage)
-			return waterCb(err);
+		// run code
+		vm.runCode(ops, function (err, res) {
+
+			if (err)
+				return cb(err);
+
+			var storage = [];
+
+			res.runState.stateManager._getStorageTrie(res.runState.address, function (err, trie) {
+				var stream = trie.createReadStream();
+	
+				stream.on('data', function (dt) {
+	
+					// var value = rlp.decode(dt.value);
+	
+					console.log(dt.value.toString('hex'));
+	
+					// storage.push({
+					// 	key: dt.key.toString('hex'),
+					// 	value: value.toString('hex')
+					// });
+				})
+	
+				stream.on("end", function () {
+					cb(null, storage);
+				});
+			});				
+		});
+	};
+
+	function done(storage, waterCb) {
+
+		if (!storage)
+			return waterCb('no storage');
 
 		var data = {
 			address: trs.recipientId,
