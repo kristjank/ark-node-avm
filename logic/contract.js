@@ -102,6 +102,7 @@ Contract.prototype.apply = function (trs, block, sender, cb) {
 	var vm = new VM(trie);
 
 	var bytecode = trs.asset.code;
+	var runtimeBytecode = '';
 	var storage = [];
 
 	vm.runCode({
@@ -111,6 +112,8 @@ Contract.prototype.apply = function (trs, block, sender, cb) {
 
 		if(err)
 			return cb(err);
+
+		runtimeBytecode = res.return.toString('hex');
 
 		res.runState.stateManager._getStorageTrie(res.runState.address, function (err, trie) {
 
@@ -136,7 +139,7 @@ Contract.prototype.apply = function (trs, block, sender, cb) {
 		var data = {
 			address: contractId,
 			blockId: block.id,
-			code: bytecode,
+			code: runtimeBytecode,
 			storage: JSON.stringify(storage)
 		};
 

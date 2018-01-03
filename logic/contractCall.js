@@ -109,32 +109,40 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 		var stateManager = vm.stateManager;
 		
 		async.waterfall([
+			function(waterCb){
+				var account = new ethAccount();
+				wStateTrie.put(address, account.serialize(), waterCb);
+			},
+			// function (waterCb) {
+			// 	var accounts = new Set();
+			// 	accounts.add(address);
+			// 	stateManager.touched.push(address);
+
+			// 	stateManager.warmCache(accounts, waterCb);
+			// },
 			function (waterCb) {
 
 				stateManager.getAccount(address, function (err, account) {
 					if(err)
 						waterCb(err);
-					
-					account.nonce = new BN(0).addn(1);
-					runsOps.account = account;
 
-					stateManager.putContractCode(address, contract.code, function(err){
-						stateManager.commitContracts(waterCb)
-						// waterCb(null);
-					});
+					stateManager.putContractCode(address, contract.code, waterCb);
 				});
 			},
 			function (waterCb) { // set state to contract account
 
 				// set state
 				async.eachSeries(storage, function(member, eachSeriesCb) {
-					stateManager.putContractStorage(address, member.key, member.value, function(err){
-						if(err)
-							eachSeriesCb(err);
+					stateManager.putContractStorage(address, member.key, member.value, eachSeriesCb);
+				}, function (err) {
+					if (err)
+						return waterCb(err);
+
+						stateManager.commitContracts(waterCb);
 					});
-				}, function(err) {
-					return waterCb(err);
-				});
+			},
+			function (waterCb) {
+				readResult(stateManager, address);
 
 				waterCb(null, vm, runsOps, wStateTrie);
 			},
@@ -163,16 +171,13 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 			res.runState.stateManager._getStorageTrie(res.runState.address, function (err, trie) {
 				var stream = trie.createReadStream();
 	
-				stream.on('data', function (dt) {
-	
-					// var value = rlp.decode(dt.value);
-	
+				stream.on('data', function (dt) {	
 					console.log(dt.value.toString('hex'));
 	
-					// storage.push({
-					// 	key: dt.key.toString('hex'),
-					// 	value: value.toString('hex')
-					// });
+					storage.push({
+						key: dt.key.toString('hex'),
+						value: dt.value.toString('hex')
+					});
 				})
 	
 				stream.on("end", function () {
@@ -184,7 +189,7 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 
 	function done(storage, waterCb) {
 
-		if (!storage)
+		if (!storage || !storage.length)
 			return waterCb('no storage');
 
 		var data = {
@@ -197,6 +202,27 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 	}
 };
 
+function readResult(stateManager, address) {
+	stateManager._getStorageTrie(address, function (err, trie) {
+		var stream = trie.createReadStream();
+
+		stream.on('data', function (dt) {
+
+			// var value = rlp.decode(dt.value);
+
+			console.log(dt.value.toString('hex'));
+
+			// storage.push({
+			// 	key: dt.key.toString('hex'),
+			// 	value: value.toString('hex')
+			// });
+		})
+
+		stream.on("end", function () {
+			// cb(null, storage);
+		});
+	});
+}
 
 //
 //__API__ `undo`
