@@ -7,6 +7,7 @@ var Trie = require('merkle-patricia-tree');
 var ethAccount = require('ethereumjs-account');
 var rlp = require('rlp');
 const BN = require('ethereumjs-util').BN;
+const util = require('ethereumjs-util');
 
 // Private fields
 var self, modules, library;
@@ -111,35 +112,21 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 		async.waterfall([
 			function(waterCb){
 				var account = new ethAccount();
-				wStateTrie.put(address, account.serialize(), waterCb);
-			},
-			// function (waterCb) {
-			// 	var accounts = new Set();
-			// 	accounts.add(address);
-			// 	stateManager.touched.push(address);
 
-			// 	stateManager.warmCache(accounts, waterCb);
-			// },
+				// stateManager._putAccount(address, account.serialize(), waterCb);
+
+				waterCb(null);
+			},
 			function (waterCb) {
 
-				stateManager.getAccount(address, function (err, account) {
-					if(err)
-						waterCb(err);
-
-					stateManager.putContractCode(address, contract.code, waterCb);
-				});
+				vm.stateManager.putContractCode(address, contract.code, waterCb);
 			},
 			function (waterCb) { // set state to contract account
 
 				// set state
-				async.eachSeries(storage, function(member, eachSeriesCb) {
-					stateManager.putContractStorage(address, member.key, member.value, eachSeriesCb);
-				}, function (err) {
-					if (err)
-						return waterCb(err);
-
-						stateManager.commitContracts(waterCb);
-					});
+				async.eachSeries(storage, function (member, eachSeriesCb) {
+					vm.stateManager.putContractStorage(address, member.key, util.addHexPrefix(member.value), eachSeriesCb);
+				}, waterCb);
 			},
 			function (waterCb) {
 				readResult(stateManager, address);
@@ -208,18 +195,13 @@ function readResult(stateManager, address) {
 
 		stream.on('data', function (dt) {
 
-			// var value = rlp.decode(dt.value);
+			var value = rlp.decode(dt.value).toString('hex');
+			// var value = dt.value.toString('hex');
 
-			console.log(dt.value.toString('hex'));
-
-			// storage.push({
-			// 	key: dt.key.toString('hex'),
-			// 	value: value.toString('hex')
-			// });
+			console.log(value);
 		})
 
 		stream.on("end", function () {
-			// cb(null, storage);
 		});
 	});
 }

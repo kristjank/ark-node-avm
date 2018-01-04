@@ -4,6 +4,8 @@ var constants = require('../helpers/constants.js');
 var VM = require('ethereumjs-vm');
 var Trie = require('merkle-patricia-tree');
 var rlp = require('rlp');
+var ethAccount = require('ethereumjs-account');
+const util = require('ethereumjs-util');
 
 // Private fields
 var self, modules, library;
@@ -98,35 +100,35 @@ Contract.prototype.apply = function (trs, block, sender, cb) {
 
 	trs.recipientId = contractId;
 
-	var trie = new Trie();
-	var vm = new VM(trie);
+	var stateTrie = new Trie();
+	var vm = new VM(stateTrie);
 
 	var bytecode = trs.asset.code;
 	var runtimeBytecode = '';
 	var storage = [];
 
 	vm.runCode({
-        code: Buffer.from(bytecode, 'hex'),
-        gasLimit: Buffer.from('ffffffffff', 'hex')
-	}, function(err, res){
-
+		code: Buffer.from(bytecode, 'hex'),
+		gasLimit: Buffer.from('ffffffffff', 'hex'),
+		address: contractId
+	}, function (err, res) {
 		if(err)
 			return cb(err);
 
 		runtimeBytecode = res.return.toString('hex');
 
 		res.runState.stateManager._getStorageTrie(res.runState.address, function (err, trie) {
+			if(err)
+				cb(err);
 
 			var stream = trie.createReadStream();
 
 			stream.on('data', function (dt) {
-
-				var value = rlp.decode(dt.value);
-				// var enc = rlp.encode(value);
+				var value = rlp.decode(dt.value).toString('hex');
 
 				storage.push({
 					key: dt.key.toString('hex'),
-					value: value.toString('hex')
+					value: value
 				});
 			})
 
