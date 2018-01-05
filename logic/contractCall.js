@@ -108,34 +108,26 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 
 		var vm = new VM(wStateTrie);
 		var stateManager = vm.stateManager;
+
+		// stateManager.trie = new Trie(stateManager.trie);
+		// vm.trie = stateManager.trie;
+		
 		
 		async.waterfall([
-			function(waterCb){
-				var account = new ethAccount();
-
-				// stateManager._putAccount(address, account.serialize(), waterCb);
-
-				waterCb(null);
-			},
 			function (waterCb) {
-
 				vm.stateManager.putContractCode(address, contract.code, waterCb);
 			},
 			function (waterCb) { // set state to contract account
-
 				// set state
 				async.eachSeries(storage, function (member, eachSeriesCb) {
-					vm.stateManager.putContractStorage(address, member.key, util.addHexPrefix(member.value), eachSeriesCb);
+					vm.stateManager.putContractStorage(address, util.addHexPrefix(member.key), util.addHexPrefix(member.value), eachSeriesCb);
 				}, waterCb);
 			},
 			function (waterCb) {
-				readResult(stateManager, address);
-
 				waterCb(null, vm, runsOps, wStateTrie);
 			},
 			runCode,
 			done // save contract account state
-			
 		], function(err) {
 			library.logger.log('err: ' + err);
 			return cb(err);
@@ -149,7 +141,6 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 
 		// run code
 		vm.runCode(ops, function (err, res) {
-
 			if (err)
 				return cb(err);
 
@@ -188,23 +179,6 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 		modules.accounts.setAccountAndGet(data, waterCb);
 	}
 };
-
-function readResult(stateManager, address) {
-	stateManager._getStorageTrie(address, function (err, trie) {
-		var stream = trie.createReadStream();
-
-		stream.on('data', function (dt) {
-
-			var value = rlp.decode(dt.value).toString('hex');
-			// var value = dt.value.toString('hex');
-
-			console.log(value);
-		})
-
-		stream.on("end", function () {
-		});
-	});
-}
 
 //
 //__API__ `undo`
