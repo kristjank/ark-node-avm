@@ -4,6 +4,8 @@ var constants = require('../helpers/constants.js');
 var VM = require('ethereumjs-vm');
 var Trie = require('merkle-patricia-tree');
 var rlp = require('rlp');
+var ethAccount = require('ethereumjs-account');
+const util = require('ethereumjs-util');
 
 // Private fields
 var self, modules, library;
@@ -29,8 +31,7 @@ Contract.prototype.bind = function (scope) {
 
 //
 Contract.prototype.create = function (data, trs) {
-	trs.recipientId = data.sender.address;
-	trs.asset.votes = data.votes;
+	trs.asset.code = data.code;
 
 	return trs;
 };
@@ -97,32 +98,40 @@ Contract.prototype.apply = function (trs, block, sender, cb) {
 	
 	var contractId = self.generateAddress(trs);
 
-	var trie = new Trie();
-	var vm = new VM(trie);
+	trs.recipientId = contractId;
+
+	var stateTrie = new Trie();
+	stateTrie.state = stateTrie; // HACK!! we do this to fool stateManager constructor so it does not create a new SAFE trie which 
+									// hash/double hash the storage keys. for now there is no other way of skiping the hashing besides
+									// forking ethereumjs-vm
+	var vm = new VM(stateTrie);
 
 	var bytecode = trs.asset.code;
+	var runtimeBytecode = '';
 	var storage = [];
 
 	vm.runCode({
-        code: Buffer.from(bytecode, 'hex'),
-        gasLimit: Buffer.from('ffffffffff', 'hex')
-	}, function(err, res){
-
+		code: Buffer.from(bytecode, 'hex'),
+		gasLimit: Buffer.from('ffffffffff', 'hex'),
+		address: contractId
+	}, function (err, res) {
 		if(err)
 			return cb(err);
 
+		runtimeBytecode = res.return.toString('hex');
+
 		res.runState.stateManager._getStorageTrie(res.runState.address, function (err, trie) {
+			if(err)
+				cb(err);
 
 			var stream = trie.createReadStream();
 
 			stream.on('data', function (dt) {
-
-				var value = rlp.decode(dt.value);
-				// var enc = rlp.encode(value);
+				var value = rlp.decode(dt.value).toString('hex');
 
 				storage.push({
-					key: dt.key.toString(),
-					value: value.toString()
+					key: dt.key.toString('hex'),
+					value: value
 				});
 			})
 
@@ -135,7 +144,7 @@ Contract.prototype.apply = function (trs, block, sender, cb) {
 		var data = {
 			address: contractId,
 			blockId: block.id,
-			code: bytecode,
+			code: runtimeBytecode,
 			storage: JSON.stringify(storage)
 		};
 
@@ -213,7 +222,7 @@ Contract.prototype.generateAddress = function(trs)
 //
 Contract.prototype.dbRead = function (raw) {
 
-	if (!raw.vote) {
+	if (!raw.code) {
 		return null;
 	} else {
 		var code = raw.code;
