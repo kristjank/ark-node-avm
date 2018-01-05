@@ -106,12 +106,11 @@ ContractCall.prototype.apply = function (trs, block, sender, cb) {
 			address: address
 		};
 
+		wStateTrie.state = wStateTrie; // HACK!! we do this to fool stateManager constructor so it does not create a new SAFE trie which 
+										// hash/double hash the storage keys. for now there is no other way of skiping the hashing besides
+										// forking ethereumjs-vm
 		var vm = new VM(wStateTrie);
-		var stateManager = vm.stateManager;
-
-		// stateManager.trie = new Trie(stateManager.trie);
-		// vm.trie = stateManager.trie;
-		
+		var stateManager = vm.stateManager;	
 		
 		async.waterfall([
 			function (waterCb) {

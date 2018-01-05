@@ -101,6 +101,9 @@ Contract.prototype.apply = function (trs, block, sender, cb) {
 	trs.recipientId = contractId;
 
 	var stateTrie = new Trie();
+	stateTrie.state = stateTrie; // HACK!! we do this to fool stateManager constructor so it does not create a new SAFE trie which 
+									// hash/double hash the storage keys. for now there is no other way of skiping the hashing besides
+									// forking ethereumjs-vm
 	var vm = new VM(stateTrie);
 
 	var bytecode = trs.asset.code;
